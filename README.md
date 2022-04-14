@@ -4,7 +4,6 @@ A GIMP plugin that crops screenshots from http://makea.fish in order to isolate 
 
 ## Examples
 
-Before:
 | Before                                        | After                                        |
 | :---------------------------------------------| :------------------------------------------- |
 | ![Before Fish 18](/README_Images/fish_18.jpg) | ![After Fish 18](/README_Images/fish_18.png) |
