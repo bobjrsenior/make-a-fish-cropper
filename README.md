@@ -51,3 +51,19 @@ You can follow the setps in [Compiling](#Compiling). Alternatively, you can copy
 ### Windows
 
 Work in progress. Need someone to test but it's probably in APPDATA.
+
+## Batch Processing
+
+First install the MakeAFishCropper.scm script.
+
+Linux: Copy the MakeAFishCropper.scm script file to `~/.config/GIMP/2.10/scripts` (or similar depending on your Distro).
+
+Windows: Work in progress. Need someone to test but you probably need to put MakeAFishCropper.scm somewhere in APPDATA.
+
+Then you need to call the script from the command line with GIMPs batch mode. It takes a filename "glob pattern" as a parameter.
+
+Example to convert all of the .jpg files in the current directory:
+
+```bash
+gimp -i -b '(batch-makeafishcropper "*.jpg")' -b '(gimp-quit 0)'
+```
