@@ -98,7 +98,6 @@ run (const gchar      *name,
     getInitialCrop (drawable, &cx1, &cx2, DIR_HORIZONTAL);
     gimp_progress_update (50);
     
-    g_message ("X: (%d, %d), Y: (%d, %d)\n", cx1, cx2, cy1, cy2);
     // Crop out the borders
     result = gimp_image_crop (image_id,
                               (cx2 - cx1), (cy2 - cy1),
