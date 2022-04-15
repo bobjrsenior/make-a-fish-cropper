@@ -110,6 +110,8 @@ run (const gchar      *name,
         failed = TRUE;
         if (run_mode != GIMP_RUN_NONINTERACTIVE)
             g_message ("Failed to crop out borders");
+        else
+            g_print ("Failed to crop out borders");
     }
     else
     {
@@ -139,6 +141,8 @@ run (const gchar      *name,
         failed = TRUE;
         if (run_mode != GIMP_RUN_NONINTERACTIVE)
             g_message ("Failed to add an Alpha channel");
+        else
+            g_print ("Failed to add an Alpha channel");
     }
     else
     {
@@ -171,6 +175,8 @@ run (const gchar      *name,
         failed = TRUE;
         if (run_mode != GIMP_RUN_NONINTERACTIVE)
             g_message ("Failed to select the background");
+        else
+            g_print ("Failed to select the background");
     }
     else
     {
@@ -186,6 +192,8 @@ run (const gchar      *name,
         failed = TRUE;
         if (run_mode != GIMP_RUN_NONINTERACTIVE)
             g_message ("Failed to clear the background");
+        else
+            g_print ("Failed to clear the background");
     }
     else
     {
@@ -216,6 +224,8 @@ run (const gchar      *name,
         failed = TRUE;
         if (run_mode != GIMP_RUN_NONINTERACTIVE)
             g_message ("Failed to crop out borders");
+        else
+            g_print ("Failed to crop out borders");
     }
     
     // Handle failure reporting
@@ -223,7 +233,6 @@ run (const gchar      *name,
     {
         status = GIMP_PDB_EXECUTION_ERROR;
     }
-    
     
     gimp_displays_flush ();
     gimp_drawable_detach (drawable);
@@ -246,10 +255,10 @@ static void getInitialCrop (GimpDrawable *drawable, gint *c1, gint *c2, enum DIR
     // They go along the perpendicular direction as the direction param
     // Ex: Direction is DIR_HORIZONTAL, p is the x direction, o (or orth) is the y direction
     // Ex: Direction is DIR_VERTICAL, p is the y direction, o (or orth) is the x direction
-    gint    o1, p1, o2, p2, channels;
-    gint    i, j, orth_start, orth_end;
-    gboolean found_first_border;
-    guchar *par1, *orth1;
+    gint          o1, p1, o2, p2, channels;
+    gint          i, j, pmid, orth_mid, orth_start, orth_end, orth_size;
+    gboolean      found_first_border, white;
+    guchar       *par1, *orth1;
     GimpPixelRgn  rgn_in;
     
     // Get our boundaries
@@ -290,20 +299,28 @@ static void getInitialCrop (GimpDrawable *drawable, gint *c1, gint *c2, enum DIR
     // Figure out the number of bytes per pixel
     channels = gimp_drawable_bpp (drawable->drawable_id);
     
+    // Start in the middle of the image when checking a potential border
+    // to make sure we are inside the borders
+    orth_mid = o1 + ((o2 - o1) / 2);
+    // We will check 40 pixels around be sure we are on a border
+    orth_start = MAX(orth_mid - 20, o1);
+    orth_end   = MIN(orth_mid + 20, o2);
+    orth_size  = orth_end - orth_start;
+    
+    // Cache the p midpoint
+    pmid = (p2 - p1) / 2;
+    
     // Allocate a row/col for one set of pixels in the p and o direction
     par1  = g_new (guchar, channels * (p2 - p1));
-    orth1 = g_new (guchar, channels * (o2 - o1));
-    
-    // Start in the middle of the image to make sure we are inside the borders
-    orth_start = o1 + ((o2 - o1) / 2);
-    
+    orth1 = g_new (guchar, channels * orth_size);
+
     // Make sure we get a row (for horizontal) or column (for vertical)
     if (direction == DIR_HORIZONTAL)
     {
         // Get the column we are going to test on
         gimp_pixel_rgn_get_row (&rgn_in,
                                 par1,
-                                p1, orth_start,
+                                p1, orth_mid,
                                 p2 - p1);
     }
     else if (direction == DIR_VERTICAL)
@@ -312,7 +329,7 @@ static void getInitialCrop (GimpDrawable *drawable, gint *c1, gint *c2, enum DIR
         // Get the row we are going to test on
         gimp_pixel_rgn_get_col (&rgn_in,
                                 par1,
-                                orth_start, p1,
+                                orth_mid, p1,
                                 p2 - p1);
     }
     // Default return values to selection start and selection end (whole image)
@@ -328,7 +345,7 @@ static void getInitialCrop (GimpDrawable *drawable, gint *c1, gint *c2, enum DIR
     {
         // If we are halfway into the image and haven't
         // found the first border, it probably isn't there
-        if (!found_first_border && i > p2 / 2)
+        if (!found_first_border && i > pmid)
         {
            found_first_border = TRUE;
         }
@@ -342,25 +359,22 @@ static void getInitialCrop (GimpDrawable *drawable, gint *c1, gint *c2, enum DIR
                 // Check if the whole column is white (or at least more of it)
                 gimp_pixel_rgn_get_col (&rgn_in,
                                         orth1,
-                                        i, o1,
-                                        o2 - o1);
+                                        i, orth_start,
+                                        orth_size);
             }
             else if (direction == DIR_VERTICAL)
             {
                 // Check if the whole row is white (or at least more of it)
                 gimp_pixel_rgn_get_row (&rgn_in,
                                         orth1,
-                                        o1, i,
-                                        o2 - o1);
+                                        orth_start, i,
+                                        orth_size);
             }
 
-            // Check 20 pixels before and after the first one we checked
-            gboolean white = TRUE;
-            gint orth_start2 = MAX(orth_start - 20, o1);
-            gint orth_end    = MIN(orth_start + 20, o2);
-            for (j = orth_start2; j < orth_end; j++)
+            white = TRUE;
+            for (j = 0; j < orth_size; j++)
             {
-                // If a pixel isn't white, this sin't the border
+                // If a pixel isn't white, this in't the border
                 if (!is_white(orth1, channels, j))
                 {
                     white = FALSE;
@@ -376,7 +390,8 @@ static void getInitialCrop (GimpDrawable *drawable, gint *c1, gint *c2, enum DIR
                     // The border is ~2 pixels
                     // Make sure we crop inside it
                     *c1 = MIN(i + 4, p2);
-                    i = *c1;
+                    // The far border should be at least halfway along
+                    i = MAX(*c1, pmid);
                 }
                 else
                 {
